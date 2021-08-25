@@ -23,8 +23,9 @@ MAPSTATE StateOfMap = lvl1;
 
 // Console object
 Console g_Console(125, 100, "SP1 Framework");
-bool retrySelected = true;
-bool quitSelected = false;
+bool alive;
+bool retrySelected;
+bool quitSelected;
 bool part1;
 bool part2;
 
@@ -49,6 +50,9 @@ void init(void)
 
     part1 = true; //init map parts
     part2 = false;
+    alive = true;
+    retrySelected = true;
+    quitSelected = false;
     g_sChar.m_cLocation.X = 4;
     g_sChar.m_cLocation.Y = 1;
 
@@ -257,77 +261,88 @@ void splashScreenWait()    // waits for time to pass in splash screen
 
 void updateGame()       // gameplay logic
 {
-    processUserInput(); // checks if you should change states or do something else with the game, e.g. pause, exit
-    moveCharacter();    // moves the character, collision detection, physics, etc
-    if (StateOfMap == lvl1)
+    if (map[g_sChar.m_cLocation.Y][g_sChar.m_cLocation.X] == '!')
     {
-        if (part1)
-        {
-            if (g_skKeyEvent[K_DOWN].keyDown && g_sChar.m_cLocation.Y == 28)
-            {
-                clearScreen();
-                g_sChar.m_cLocation.Y = 0;
-                part1 = false;
-            }
-        }
-        else
-        {
-            if (g_skKeyEvent[K_UP].keyDown && g_sChar.m_cLocation.Y == 0)
-            {
-                clearScreen();
-                g_sChar.m_cLocation.Y = 27;
-                part1 = true;
-            }
-        }
+        alive = false;
     }
-    if (g_sChar.m_cLocation.X == g_dDoor.m_dLocation.X && g_sChar.m_cLocation.Y == g_dDoor.m_dLocation.Y)
+    if (!alive)
     {
-        if (g_skKeyEvent[K_SPACE].keyReleased)
+        triggerGameOver();
+    }
+    else 
+    {
+        processUserInput(); // checks if you should change states or do something else with the game, e.g. pause, exit
+        moveCharacter();    // moves the character, collision detection, physics, etc
+        if (StateOfMap == lvl1)
         {
-            clearScreen();
-            StateOfMap = lvl2;
-            g_sChar.m_cLocation.X = 16;
-            g_sChar.m_cLocation.Y = 20;
-            part1 = true;
+            if (part1)
+            {
+                if (g_skKeyEvent[K_DOWN].keyDown && g_sChar.m_cLocation.Y == 28)
+                {
+                    clearScreen();
+                    g_sChar.m_cLocation.Y = 0;
+                    part1 = false;
+                }
+            }
+            else
+            {
+                if (g_skKeyEvent[K_UP].keyDown && g_sChar.m_cLocation.Y == 0)
+                {
+                    clearScreen();
+                    g_sChar.m_cLocation.Y = 27;
+                    part1 = true;
+                }
+            }
+        }
+        if (g_sChar.m_cLocation.X == g_dDoor.m_dLocation.X && g_sChar.m_cLocation.Y == g_dDoor.m_dLocation.Y)
+        {
+            if (g_skKeyEvent[K_SPACE].keyReleased)
+            {
+                clearScreen();
+                StateOfMap = lvl2;
+                g_sChar.m_cLocation.X = 16;
+                g_sChar.m_cLocation.Y = 20;
+                part1 = true;
 
-        }
-    }
-    if (StateOfMap == lvl2)
-    {
-        if (part1)
-        {
-            if (g_skKeyEvent[K_DOWN].keyDown && g_sChar.m_cLocation.Y == 29)
-            {
-                clearScreen();
-                g_sChar.m_cLocation.Y = 0;
-                part1 = false;
-                part2 = true;
             }
         }
-        else if (part2)
+        if (StateOfMap == lvl2)
         {
-            if (g_skKeyEvent[K_UP].keyDown && g_sChar.m_cLocation.Y == 0)
+            if (part1)
             {
-                clearScreen();
-                g_sChar.m_cLocation.Y = 27;
-                part1 = true;
-                part2 = false;
+                if (g_skKeyEvent[K_DOWN].keyDown && g_sChar.m_cLocation.Y == 29)
+                {
+                    clearScreen();
+                    g_sChar.m_cLocation.Y = 0;
+                    part1 = false;
+                    part2 = true;
+                }
             }
-            if (g_skKeyEvent[K_DOWN].keyDown && g_sChar.m_cLocation.Y == 29)
+            else if (part2)
             {
-                clearScreen();
-                g_sChar.m_cLocation.Y = 0;
-                part1 = false;
-                part2 = false;
+                if (g_skKeyEvent[K_UP].keyDown && g_sChar.m_cLocation.Y == 0)
+                {
+                    clearScreen();
+                    g_sChar.m_cLocation.Y = 27;
+                    part1 = true;
+                    part2 = false;
+                }
+                if (g_skKeyEvent[K_DOWN].keyDown && g_sChar.m_cLocation.Y > 29)
+                {
+                    clearScreen();
+                    g_sChar.m_cLocation.Y = 0;
+                    part1 = false;
+                    part2 = false;
+                }
             }
-        }
-        else
-        {
-            if (g_skKeyEvent[K_UP].keyDown && g_sChar.m_cLocation.Y == 0)
+            else
             {
-                clearScreen();
-                g_sChar.m_cLocation.Y = 29;
-                part2 = true;
+                if (g_skKeyEvent[K_UP].keyDown && g_sChar.m_cLocation.Y == 0)
+                {
+                    clearScreen();
+                    g_sChar.m_cLocation.Y = 29;
+                    part2 = true;
+                }
             }
         }
     }
@@ -482,11 +497,6 @@ void renderSplashScreen()  // renders the splash screen
 
 void renderGame()
 {
-    if (map[g_sChar.m_cLocation.Y][g_sChar.m_cLocation.X] == '!')
-    {
-        alive = false;
-        triggerGameOver();
-    }
     renderMap();        // renders the map to the buffer first
     renderCharacter();  // renders the character into the buffer
 }
@@ -546,6 +556,11 @@ void loadlvl1()
         renderDoor(71, 5);  //renders door to go to the next level
         lvl1TXTclear();
     }
+    if (!alive)
+    {
+        clearScreen();
+        triggerGameOver();
+    }
 }
 
 
@@ -598,7 +613,6 @@ void lvl1TXTclear()
 
 void gameOver()
 {
-    retrySelected = true;
     COORD c;
     COORD retry;
     COORD quit;
@@ -614,8 +628,8 @@ void gameOver()
     g_Console.writeToBuffer(retry, "Retry", BACKGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
     if (g_skKeyEvent[K_ENTER].keyReleased)
     {
-        alive = true;
         init();
+        StateOfMap = lvl1;
         g_eGameState = S_GAME;
     }
 
@@ -623,17 +637,16 @@ void gameOver()
     {
         quitSelected = true;
         retrySelected = false;
-        selectQuit();
+        triggerGameOver();
     }
 }
 
 void triggerGameOver()
 {
-    alive = false;
     clearScreen();
     if (retrySelected)
         gameOver();
-    if (quitSelected)
+    else if (quitSelected)
         selectQuit();
 }
 
@@ -715,6 +728,12 @@ void loadlvl2()
             }
         }
         x++;
+    }
+
+    if (!alive)
+    {
+        clearScreen();
+        triggerGameOver();
     }
     COORD c = g_Console.getConsoleSize();
     /* c.Y = nx;

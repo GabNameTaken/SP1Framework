@@ -6,7 +6,6 @@
 extern CStopWatch g_swTimer;
 extern bool g_bQuitGame;
 extern bool story;
-extern bool alive;
 
 
 // struct to store keyboard events
