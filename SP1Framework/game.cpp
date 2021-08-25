@@ -3,9 +3,12 @@
 //
 #include "game.h"
 #include "Framework\console.h"
+#include "Framework\timer.h"
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <fstream>
+#include <string>
 
 double  g_dElapsedTime;
 double  g_dDeltaTime;
@@ -14,10 +17,20 @@ SMouseEvent g_mouseEvent;
 
 // Game specific variables here
 SGameChar   g_sChar;
+SGameDoor   g_dDoor;
 EGAMESTATES g_eGameState = S_SPLASHSCREEN; // initial state
+MAPSTATE StateOfMap = lvl1;
 
 // Console object
-Console g_Console(80, 25, "SP1 Framework");
+Console g_Console(125, 100, "SP1 Framework");
+bool retrySelected = true;
+bool quitSelected = false;
+bool part1;
+bool part2;
+
+
+char map[300][300];
+
 
 //--------------------------------------------------------------
 // Purpose  : Initialisation function
@@ -26,16 +39,19 @@ Console g_Console(80, 25, "SP1 Framework");
 // Input    : void
 // Output   : void
 //--------------------------------------------------------------
-void init( void )
+void init(void)
 {
     // Set precision for floating point output
-    g_dElapsedTime = 0.0;    
+    g_dElapsedTime = 0.0;
 
     // sets the initial state for the game
     g_eGameState = S_SPLASHSCREEN;
 
-    g_sChar.m_cLocation.X = g_Console.getConsoleSize().X / 2;
-    g_sChar.m_cLocation.Y = g_Console.getConsoleSize().Y / 2;
+    part1 = true; //init map parts
+    part2 = false;
+    g_sChar.m_cLocation.X = 4;
+    g_sChar.m_cLocation.Y = 1;
+
     g_sChar.m_bActive = true;
     // sets the width, height and the font name to use in the console
     g_Console.setConsoleFont(0, 16, L"Consolas");
@@ -52,7 +68,7 @@ void init( void )
 // Input    : Void
 // Output   : void
 //--------------------------------------------------------------
-void shutdown( void )
+void shutdown(void)
 {
     // Reset to white text on black background
     colour(FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
@@ -73,12 +89,12 @@ void shutdown( void )
 // Input    : Void
 // Output   : void
 //--------------------------------------------------------------
-void getInput( void )
+void getInput(void)
 {
     // resets all the keyboard events
     memset(g_skKeyEvent, 0, K_COUNT * sizeof(*g_skKeyEvent));
     // then call the console to detect input from user
-    g_Console.readConsoleInput();    
+    g_Console.readConsoleInput();
 }
 
 //--------------------------------------------------------------
@@ -95,14 +111,17 @@ void getInput( void )
 // Output   : void
 //--------------------------------------------------------------
 void keyboardHandler(const KEY_EVENT_RECORD& keyboardEvent)
-{    
+{
+    /*
     switch (g_eGameState)
     {
     case S_SPLASHSCREEN: // don't handle anything for the splash screen
         break;
-    case S_GAME: gameplayKBHandler(keyboardEvent); // handle gameplay keyboard event 
+    case S_GAME: gameplayKBHandler(keyboardEvent); // handle gameplay keyboard event
         break;
     }
+    */
+    gameplayKBHandler(keyboardEvent);
 }
 
 //--------------------------------------------------------------
@@ -122,7 +141,7 @@ void keyboardHandler(const KEY_EVENT_RECORD& keyboardEvent)
 // Output   : void
 //--------------------------------------------------------------
 void mouseHandler(const MOUSE_EVENT_RECORD& mouseEvent)
-{    
+{
     switch (g_eGameState)
     {
     case S_SPLASHSCREEN: // don't handle anything for the splash screen
@@ -149,10 +168,11 @@ void gameplayKBHandler(const KEY_EVENT_RECORD& keyboardEvent)
     {
     case VK_UP: key = K_UP; break;
     case VK_DOWN: key = K_DOWN; break;
-    case VK_LEFT: key = K_LEFT; break; 
-    case VK_RIGHT: key = K_RIGHT; break; 
+    case VK_LEFT: key = K_LEFT; break;
+    case VK_RIGHT: key = K_RIGHT; break;
     case VK_SPACE: key = K_SPACE; break;
-    case VK_ESCAPE: key = K_ESCAPE; break; 
+    case VK_RETURN: key = K_ENTER; break;
+    case VK_ESCAPE: key = K_ESCAPE; break;
     }
     // a key pressed event would be one with bKeyDown == true
     // a key released event would be one with bKeyDown == false
@@ -162,7 +182,7 @@ void gameplayKBHandler(const KEY_EVENT_RECORD& keyboardEvent)
     {
         g_skKeyEvent[key].keyDown = keyboardEvent.bKeyDown;
         g_skKeyEvent[key].keyReleased = !keyboardEvent.bKeyDown;
-    }    
+    }
 }
 
 //--------------------------------------------------------------
@@ -183,6 +203,21 @@ void gameplayMouseHandler(const MOUSE_EVENT_RECORD& mouseEvent)
     g_mouseEvent.buttonState = mouseEvent.dwButtonState;
     g_mouseEvent.eventFlags = mouseEvent.dwEventFlags;
 }
+void renderDoor(double x, double y)
+{
+    WORD doorColor = 0x0F;
+    g_Console.writeToBuffer(g_dDoor.m_dLocation, (char)48, doorColor);
+    g_dDoor.m_dLocation.X = x;
+    g_dDoor.m_dLocation.Y = y;
+
+}
+
+
+
+/*void renderMap2()
+{
+}
+*/
 
 //--------------------------------------------------------------
 // Purpose  : Update function
@@ -206,17 +241,17 @@ void update(double dt)
 
     switch (g_eGameState)
     {
-        case S_SPLASHSCREEN : splashScreenWait(); // game logic for the splash screen
-            break;
-        case S_GAME: updateGame(); // gameplay logic when we are in the game
-            break;
+    case S_SPLASHSCREEN: splashScreenWait(); // game logic for the splash screen
+        break;
+    case S_GAME: updateGame(); // gameplay logic when we are in the game
+        break;
     }
 }
 
 
 void splashScreenWait()    // waits for time to pass in splash screen
 {
-    if (g_dElapsedTime > 3.0) // wait for 3 seconds to switch to game mode, else do nothing
+    if (g_skKeyEvent[K_ENTER].keyReleased)
         g_eGameState = S_GAME;
 }
 
@@ -224,45 +259,102 @@ void updateGame()       // gameplay logic
 {
     processUserInput(); // checks if you should change states or do something else with the game, e.g. pause, exit
     moveCharacter();    // moves the character, collision detection, physics, etc
-                        // sound can be played here too.
+    if (StateOfMap == lvl1)
+    {
+        if (part1)
+        {
+            if (g_skKeyEvent[K_DOWN].keyDown && g_sChar.m_cLocation.Y == 28)
+            {
+                clearScreen();
+                g_sChar.m_cLocation.Y = 0;
+                part1 = false;
+            }
+        }
+        else
+        {
+            if (g_skKeyEvent[K_UP].keyDown && g_sChar.m_cLocation.Y == 0)
+            {
+                clearScreen();
+                g_sChar.m_cLocation.Y = 27;
+                part1 = true;
+            }
+        }
+    }
+    if (g_sChar.m_cLocation.X == g_dDoor.m_dLocation.X && g_sChar.m_cLocation.Y == g_dDoor.m_dLocation.Y)
+    {
+        if (g_skKeyEvent[K_SPACE].keyReleased)
+        {
+            clearScreen();
+            StateOfMap = lvl2;
+            g_sChar.m_cLocation.X = 16;
+            g_sChar.m_cLocation.Y = 20;
+            part1 = true;
+
+        }
+    }
+    if (StateOfMap == lvl2)
+    {
+        if (part1)
+        {
+            if (g_skKeyEvent[K_DOWN].keyDown && g_sChar.m_cLocation.Y == 28)
+            {
+                clearScreen();
+                g_sChar.m_cLocation.Y = 0;
+                part1 = false;
+                part2 = true;
+            }
+        }
+        else if (part2)
+        {
+            if (g_skKeyEvent[K_DOWN].keyDown && g_sChar.m_cLocation.Y == 0)
+            {
+                clearScreen();
+                g_sChar.m_cLocation.Y = 27;
+                part1 = true;
+                part2 = false;
+            }
+        }
+    }
 }
 
 void moveCharacter()
-{    
-    // Updating the location of the character based on the key release
-    // providing a beep sound whenver we shift the character
-    if (g_skKeyEvent[K_UP].keyReleased && g_sChar.m_cLocation.Y > 0)
+{
+    if (g_skKeyEvent[K_UP].keyDown && g_sChar.m_cLocation.Y > 0)
     {
-        //Beep(1440, 30);
-        g_sChar.m_cLocation.Y--;       
+        if (map[g_sChar.m_cLocation.Y - 1][g_sChar.m_cLocation.X] != '#')
+        {
+            g_sChar.m_cLocation.Y--;
+        }
     }
-    if (g_skKeyEvent[K_LEFT].keyReleased && g_sChar.m_cLocation.X > 0)
+    if (g_skKeyEvent[K_LEFT].keyDown && g_sChar.m_cLocation.X > 0)
     {
-        //Beep(1440, 30);
-        g_sChar.m_cLocation.X--;        
+        if (map[g_sChar.m_cLocation.Y][g_sChar.m_cLocation.X - 1] != '#')
+        {
+            g_sChar.m_cLocation.X--;
+        }
     }
-    if (g_skKeyEvent[K_DOWN].keyReleased && g_sChar.m_cLocation.Y < g_Console.getConsoleSize().Y - 1)
+    if (g_skKeyEvent[K_DOWN].keyDown && g_sChar.m_cLocation.Y < g_Console.getConsoleSize().Y - 1)
     {
-        //Beep(1440, 30);
-        g_sChar.m_cLocation.Y++;        
+        if (map[g_sChar.m_cLocation.Y + 1][g_sChar.m_cLocation.X] != '#')
+        {
+            g_sChar.m_cLocation.Y++;
+        }
     }
-    if (g_skKeyEvent[K_RIGHT].keyReleased && g_sChar.m_cLocation.X < g_Console.getConsoleSize().X - 1)
+    if (g_skKeyEvent[K_RIGHT].keyDown && g_sChar.m_cLocation.X < g_Console.getConsoleSize().X - 1)
     {
-        //Beep(1440, 30);
-        g_sChar.m_cLocation.X++;        
-    }
-    if (g_skKeyEvent[K_SPACE].keyReleased)
-    {
-        g_sChar.m_bActive = !g_sChar.m_bActive;        
+        if (map[g_sChar.m_cLocation.Y][g_sChar.m_cLocation.X + 1] != '#')
+        {
+            g_sChar.m_cLocation.X++;
+        }
     }
 
-   
 }
 void processUserInput()
 {
     // quits the game if player hits the escape key
+
     if (g_skKeyEvent[K_ESCAPE].keyReleased)
-        g_bQuitGame = true;    
+        g_bQuitGame = true;
 }
 
 //--------------------------------------------------------------
@@ -286,6 +378,8 @@ void render()
     renderFramerate();      // renders debug information, frame rate, elapsed time, etc
     renderInputEvents();    // renders status of input events
     renderToScreen();       // dump the contents of the buffer to the screen, one frame worth of game
+
+
 }
 
 void clearScreen()
@@ -302,41 +396,331 @@ void renderToScreen()
 
 void renderSplashScreen()  // renders the splash screen
 {
+    std::fstream inFile;
+    inFile.open("titlescreen.txt");
+    if (inFile.fail())
+    {
+        std::cerr << "Error";
+        exit(1);
+    }
+    std::string elem;
+    char title[128][128];
+    int y = 0;
+    while (getline(inFile, elem)) //get file by string
+    {
+        for (unsigned i = 0; i < elem.length(); ++i)
+        {
+            title[y][i] = elem.at(i); //read each string character
+
+        }
+        y++;
+    }
+    for (int y = 0; y < 7; y++)
+    {
+        for (int x = 0; x < 128; x++)
+        {
+            if (title[y][x] == '|')
+            {
+                g_Console.writeToBuffer(x, y, '|', BACKGROUND_BLUE | FOREGROUND_RED);
+            }
+            if (title[y][x] == '_')
+            {
+                g_Console.writeToBuffer(x, y, '_', BACKGROUND_BLUE | FOREGROUND_RED);
+            }
+            if (title[y][x] == '/')
+            {
+                g_Console.writeToBuffer(x, y, '/', BACKGROUND_BLUE | FOREGROUND_RED);
+            }
+            if (title[y][x] == '.')
+            {
+                g_Console.writeToBuffer(x, y, '.', BACKGROUND_BLUE | FOREGROUND_RED);
+            }
+            if (title[y][x] == '>')
+            {
+                g_Console.writeToBuffer(x, y, '>', BACKGROUND_BLUE | FOREGROUND_RED);
+            }
+            if (title[y][x] == '(')
+            {
+                g_Console.writeToBuffer(x, y, '(', BACKGROUND_BLUE | FOREGROUND_RED);
+            }
+        }
+    }
     COORD c = g_Console.getConsoleSize();
-    c.Y /= 3;
-    c.X = c.X / 2 - 9;
-    g_Console.writeToBuffer(c, "A game in 3 seconds", 0x03);
-    c.Y += 1;
-    c.X = g_Console.getConsoleSize().X / 2 - 20;
-    g_Console.writeToBuffer(c, "Press <Space> to change character colour", 0x09);
-    c.Y += 1;
-    c.X = g_Console.getConsoleSize().X / 2 - 9;
-    g_Console.writeToBuffer(c, "Press 'Esc' to quit", 0x09);
+    c.Y = 10;
+    c.X = 35;
+    g_Console.writeToBuffer(c, "Start", 0x03);
+
+    c.Y = 18;
+    c.X = 0;
+    g_Console.writeToBuffer(c, "The year is 20210 you are the captain of a sea exploration team as the earth has", 0x03);
+    c.Y = 19;
+    c.X = 0;
+    g_Console.writeToBuffer(c, "been 80% submerged into the ocean, you are sent to explore the inner depths of", 0x03);
+    c.Y = 20;
+    c.X = 0;
+    g_Console.writeToBuffer(c, "the ocean, said to hold great treasures.", 0x03);
+    c.Y = 22;
+    c.X = 7;
+    g_Console.writeToBuffer(c, "You find an entrance to a hidden cave-like structure and enter", 0x03);
 }
 
 void renderGame()
 {
+    if (map[g_sChar.m_cLocation.Y][g_sChar.m_cLocation.X] == '!')
+    {
+        alive = false;
+        triggerGameOver();
+    }
     renderMap();        // renders the map to the buffer first
     renderCharacter();  // renders the character into the buffer
 }
 
-void renderMap()
+void loadlvl1()
 {
-    // Set up sample colours, and output shadings
-    const WORD colors[] = {
-        0x1A, 0x2B, 0x3C, 0x4D, 0x5E, 0x6F,
-        0xA1, 0xB2, 0xC3, 0xD4, 0xE5, 0xF6
-    };
-
-    COORD c;
-    for (int i = 0; i < 12; ++i)
+    std::fstream inFile;
+    if (part1)
     {
-        c.X = 5 * i;
-        c.Y = i + 1;
-        colour(colors[i]);
-        g_Console.writeToBuffer(c, " °±²Û", colors[i]);
+        inFile.open("lvl1");
+    }
+    else
+    {
+        inFile.open("lvl1part2.txt");
+    }
+    //Error check
+    if (inFile.fail())
+    {
+        std::cerr << "Error";
+        exit(1);
+    }
+
+    std::string elem;
+    // Init and store Map
+    int x = 0;
+    while (getline(inFile, elem)) //get file by string
+    {
+        for (unsigned i = 0; i < elem.length(); ++i)
+        {
+            map[x][i] = elem.at(i); //read each string character
+
+            if (map[x][i] == '.')
+            {
+                g_Console.writeToBuffer(i, x, ' ', BACKGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE | FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+            }
+            else if (map[x][i] == '#')
+            {
+                g_Console.writeToBuffer(i, x, '#', 0 | 0);
+            }
+            else if (map[x][i] == '?')
+            {
+                g_Console.writeToBuffer(i, x, '?', 0 | 0);
+            }
+            else if (map[x][i] == '!')
+            {
+                g_Console.writeToBuffer(i, x, '!', FOREGROUND_RED | BACKGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+            }
+            else if (map[x][i] == '+')
+            {
+                g_Console.writeToBuffer(i, x, '+', FOREGROUND_GREEN | BACKGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+            }
+        }
+        x++;
+    }
+    if (part1)
+    {
+        renderDoor(71, 5);  //renders door to go to the next level
+        lvl1TXTclear();
     }
 }
+
+
+void lvl1TXT()
+{
+    COORD c = g_Console.getConsoleSize();
+    std::string s1{ "You find an entrance to a hidden cave-like structure and enter" };
+    std::string s2{ "Player: This place looks promising" };
+    std::string s3{ "The treasure is close now you can feel it" };
+    if (g_skKeyEvent[K_SPACE].keyReleased)
+    {
+        story = false;
+        lvl1TXTclear();
+    }
+    else
+    {
+        c.Y = 22;
+        c.X = 7;
+        g_Console.writeToBuffer(c, s1, 0x03);
+        c.X = 7;
+        c.Y = 24;
+        g_Console.writeToBuffer(c, s2, 0x03);
+        c.X = 7;
+        c.Y = 25;
+        g_Console.writeToBuffer(c, s3, 0x03);
+    }
+
+}
+void lvl1TXTclear()
+{
+    COORD c = g_Console.getConsoleSize();
+    if (story)
+    {
+        lvl1TXT();
+    }
+    else
+    {
+        c.Y = 22;
+        c.X = 7;
+        g_Console.writeToBuffer(c, "", 0x03);
+        c.X = 7;
+        c.Y = 24;
+        g_Console.writeToBuffer(c, "", 0x03);
+        c.X = 7;
+        c.Y = 25;
+        g_Console.writeToBuffer(c, "", 0x03);
+    }
+
+}
+
+void gameOver()
+{
+    retrySelected = true;
+    COORD c;
+    COORD retry;
+    COORD quit;
+    c.X = 33;
+    c.Y = 8;
+    g_Console.writeToBuffer(c, "Game Over");
+    retry.X = 35;
+    retry.Y = 12;
+    g_Console.writeToBuffer(retry, "Retry");
+    quit.X = 35;
+    quit.Y = 15;
+    g_Console.writeToBuffer(quit, "Quit");
+    g_Console.writeToBuffer(retry, "Retry", BACKGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    if (g_skKeyEvent[K_ENTER].keyReleased)
+    {
+        alive = true;
+        init();
+        g_eGameState = S_GAME;
+    }
+
+    if (g_skKeyEvent[K_DOWN].keyReleased)
+    {
+        quitSelected = true;
+        retrySelected = false;
+        selectQuit();
+    }
+}
+
+void triggerGameOver()
+{
+    alive = false;
+    clearScreen();
+    if (retrySelected)
+        gameOver();
+    if (quitSelected)
+        selectQuit();
+}
+
+void selectQuit()
+{
+    COORD c;
+    COORD retry;
+    COORD quit;
+    c.X = 33;
+    c.Y = 8;
+    g_Console.writeToBuffer(c, "Game Over");
+    retry.X = 35;
+    retry.Y = 12;
+    g_Console.writeToBuffer(retry, "Retry");
+    quit.X = 35;
+    quit.Y = 15;
+    g_Console.writeToBuffer(quit, "Quit", BACKGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    if (g_skKeyEvent[K_ENTER].keyReleased)
+    {
+        g_bQuitGame = true;
+    }
+    if (g_skKeyEvent[K_UP].keyReleased)
+    {
+        retrySelected = true;
+        quitSelected = false;
+    }
+}
+
+void loadlvl2()
+{
+    std::fstream inFile;
+    if (part1)
+    {
+        inFile.open("lvl2");
+    }
+    if (part2)
+    {
+        inFile.open("lvl2part2.txt");
+    }
+
+    //Error check
+    if (inFile.fail())
+    {
+        std::cerr << "Error";
+        exit(1);
+    }
+
+    std::string elem;
+    int x = 0;
+    while (getline(inFile, elem)) //get file by string
+    {
+        for (unsigned i = 0; i < elem.length(); ++i)
+        {
+            map[x][i] = elem.at(i); //read each string character
+
+            if (map[x][i] == '.')
+            {
+                g_Console.writeToBuffer(i, x, ' ', BACKGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE | FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+            }
+            else if (map[x][i] == '#')
+            {
+                g_Console.writeToBuffer(i, x, '#', 0 | 0);
+            }
+            else if (map[x][i] == '?')
+            {
+                g_Console.writeToBuffer(i, x, '?', 0 | 0);
+            }
+            else if (map[x][i] == '!')
+            {
+                g_Console.writeToBuffer(i, x, '!', FOREGROUND_RED | BACKGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+            }
+            else if (map[x][i] == '+')
+            {
+                g_Console.writeToBuffer(i, x, '+', FOREGROUND_GREEN | BACKGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+            }
+        }
+        x++;
+    }
+    COORD c = g_Console.getConsoleSize();
+    /* c.Y = nx;
+     c.X = ny;
+     g_Console.writeToBuffer(c, "Player:I just wanted some treasure man..", 0x03);
+     c.X = nx;
+     c.Y = ny;
+     g_Console.writeToBuffer(c, "As you enter the second level a strange feeling passes over you almost as if someone is watching you.", 0x03); */
+}
+
+
+
+
+void renderMap()
+{
+    switch (StateOfMap)
+    {
+    case lvl1: loadlvl1();
+        break;
+    case lvl2: loadlvl2();
+        break;
+    }
+}
+
+
+
 
 void renderCharacter()
 {
@@ -346,6 +730,12 @@ void renderCharacter()
     {
         charColor = 0x0A;
     }
+    /*if (Map2 = true)
+    {
+        g_sChar.m_cLocation.X = 0;
+        g_sChar.m_cLocation.Y = g_Console.getConsoleSize().Y / 2;
+    }
+    */
     g_Console.writeToBuffer(g_sChar.m_cLocation, (char)1, charColor);
 }
 
@@ -372,76 +762,17 @@ void renderFramerate()
 void renderInputEvents()
 {
     // keyboard events
-    COORD startPos = {50, 2};
     std::ostringstream ss;
-    std::string key;
-    for (int i = 0; i < K_COUNT; ++i)
-    {
-        ss.str("");
-        switch (i)
-        {
-        case K_UP: key = "UP";
-            break;
-        case K_DOWN: key = "DOWN";
-            break;
-        case K_LEFT: key = "LEFT";
-            break;
-        case K_RIGHT: key = "RIGHT";
-            break;
-        case K_SPACE: key = "SPACE";
-            break;
-        default: continue;
-        }
-        if (g_skKeyEvent[i].keyDown)
-            ss << key << " pressed";
-        else if (g_skKeyEvent[i].keyReleased)
-            ss << key << " released";
-        else
-            ss << key << " not pressed";
-
-        COORD c = { startPos.X, startPos.Y + i };
-        g_Console.writeToBuffer(c, ss.str(), 0x17);
-    }
 
     // mouse events    
     ss.str("");
     ss << "Mouse position (" << g_mouseEvent.mousePosition.X << ", " << g_mouseEvent.mousePosition.Y << ")";
     g_Console.writeToBuffer(g_mouseEvent.mousePosition, ss.str(), 0x59);
-    ss.str("");
-    switch (g_mouseEvent.eventFlags)
-    {
-    case 0:
-        if (g_mouseEvent.buttonState == FROM_LEFT_1ST_BUTTON_PRESSED)
-        {
-            ss.str("Left Button Pressed");
-            g_Console.writeToBuffer(g_mouseEvent.mousePosition.X, g_mouseEvent.mousePosition.Y + 1, ss.str(), 0x59);
-        }
-        else if (g_mouseEvent.buttonState == RIGHTMOST_BUTTON_PRESSED)
-        {
-            ss.str("Right Button Pressed");
-            g_Console.writeToBuffer(g_mouseEvent.mousePosition.X, g_mouseEvent.mousePosition.Y + 2, ss.str(), 0x59);
-        }
-        else
-        {
-            ss.str("Some Button Pressed");
-            g_Console.writeToBuffer(g_mouseEvent.mousePosition.X, g_mouseEvent.mousePosition.Y + 3, ss.str(), 0x59);
-        }
-        break;
-    case DOUBLE_CLICK:
-        ss.str("Double Clicked");
-        g_Console.writeToBuffer(g_mouseEvent.mousePosition.X, g_mouseEvent.mousePosition.Y + 4, ss.str(), 0x59);
-        break;        
-    case MOUSE_WHEELED:
-        if (g_mouseEvent.buttonState & 0xFF000000)
-            ss.str("Mouse wheeled down");
-        else
-            ss.str("Mouse wheeled up");
-        g_Console.writeToBuffer(g_mouseEvent.mousePosition.X, g_mouseEvent.mousePosition.Y + 5, ss.str(), 0x59);
-        break;
-    default:        
-        break;
-    }
-    
+
+
+
+
+
 }
 
 

@@ -5,6 +5,9 @@
 
 extern CStopWatch g_swTimer;
 extern bool g_bQuitGame;
+extern bool story;
+extern bool alive;
+
 
 // struct to store keyboard events
 // a small subset of KEY_EVENT_RECORD
@@ -32,6 +35,7 @@ enum EKEYS
     K_RIGHT,
     K_ESCAPE,
     K_SPACE,
+    K_ENTER,
     K_COUNT
 };
 
@@ -40,7 +44,14 @@ enum EGAMESTATES
 {
     S_SPLASHSCREEN,
     S_GAME,
+    S_GAMEOVER,
     S_COUNT
+};
+
+enum MAPSTATE
+{
+    lvl1,
+    lvl2
 };
 
 // struct for the game character
@@ -49,12 +60,15 @@ struct SGameChar
     COORD m_cLocation;
     bool  m_bActive;
 };
-
-void init        ( void );      // initialize your variables, allocate memory, etc
-void getInput    ( void );      // get input from player
-void update      ( double dt ); // update the game and the state of the game
-void render      ( void );      // renders the current state of the game to the console
-void shutdown    ( void );      // do clean up, free memory
+struct SGameDoor
+{
+    COORD m_dLocation;
+};
+void init(void);      // initialize your variables, allocate memory, etc
+void getInput(void);      // get input from player
+void update(double dt); // update the game and the state of the game
+void render(void);      // renders the current state of the game to the console
+void shutdown(void);      // do clean up, free memory
 
 void splashScreenWait();    // waits for time to pass in splash screen
 void updateGame();          // gameplay logic
@@ -76,5 +90,12 @@ void mouseHandler(const MOUSE_EVENT_RECORD& mouseEvent);      // define this fun
 void gameplayKBHandler(const KEY_EVENT_RECORD& keyboardEvent);   // handles keyboard events for gameplay 
 void gameplayMouseHandler(const MOUSE_EVENT_RECORD& mouseEvent); // handles mouse events for gameplay 
 
+void loadlvl1();
+void lvl1TXT();
+void lvl1TXTclear();
+void loadlvl2();
 
+void gameOver();
+void triggerGameOver();
+void selectQuit();
 #endif // _GAME_H
