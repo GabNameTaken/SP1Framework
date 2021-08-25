@@ -216,13 +216,6 @@ void renderDoor(double x, double y)
 
 }
 
-
-
-/*void renderMap2()
-{
-}
-*/
-
 //--------------------------------------------------------------
 // Purpose  : Update function
 //            This is the update function
@@ -479,7 +472,7 @@ void renderSplashScreen()  // renders the splash screen
     COORD c = g_Console.getConsoleSize();
     c.Y = 10;
     c.X = 35;
-    g_Console.writeToBuffer(c, "Start", 0x03);
+    g_Console.writeToBuffer(c, "Press ENTER to Start", 0x03);
 
     c.Y = 18;
     c.X = 0;
@@ -542,7 +535,7 @@ void loadlvl1()
             }
             else if (map[x][i] == '!')
             {
-                g_Console.writeToBuffer(i, x, '!', FOREGROUND_RED | BACKGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+                g_Console.writeToBuffer(i, x, '!', FOREGROUND_RED | BACKGROUND_RED);
             }
             else if (map[x][i] == '+')
             {
@@ -720,7 +713,7 @@ void loadlvl2()
             }
             else if (map[x][i] == '!')
             {
-                g_Console.writeToBuffer(i, x, '!', FOREGROUND_RED | BACKGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+                g_Console.writeToBuffer(i, x, '!', FOREGROUND_RED | BACKGROUND_RED);
             }
             else if (map[x][i] == '+')
             {
@@ -788,13 +781,6 @@ void renderFramerate()
     c.X = g_Console.getConsoleSize().X - 9;
     c.Y = 0;
     g_Console.writeToBuffer(c, ss.str());
-
-    // displays the elapsed time
-    ss.str("");
-    ss << g_dElapsedTime << "secs";
-    c.X = 0;
-    c.Y = 0;
-    g_Console.writeToBuffer(c, ss.str(), 0x59);
 }
 
 // this is an example of how you would use the input events
@@ -804,10 +790,10 @@ void renderInputEvents()
     std::ostringstream ss;
 
     // mouse events    
-    ss.str("");
+   /*ss.str("");
     ss << "Mouse position (" << g_mouseEvent.mousePosition.X << ", " << g_mouseEvent.mousePosition.Y << ")";
     g_Console.writeToBuffer(g_mouseEvent.mousePosition, ss.str(), 0x59);
-
+    */
 
 
 
