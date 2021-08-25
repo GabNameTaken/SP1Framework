@@ -296,7 +296,7 @@ void updateGame()       // gameplay logic
     {
         if (part1)
         {
-            if (g_skKeyEvent[K_DOWN].keyDown && g_sChar.m_cLocation.Y == 28)
+            if (g_skKeyEvent[K_DOWN].keyDown && g_sChar.m_cLocation.Y == 29)
             {
                 clearScreen();
                 g_sChar.m_cLocation.Y = 0;
@@ -306,12 +306,28 @@ void updateGame()       // gameplay logic
         }
         else if (part2)
         {
-            if (g_skKeyEvent[K_DOWN].keyDown && g_sChar.m_cLocation.Y == 0)
+            if (g_skKeyEvent[K_UP].keyDown && g_sChar.m_cLocation.Y == 0)
             {
                 clearScreen();
                 g_sChar.m_cLocation.Y = 27;
                 part1 = true;
                 part2 = false;
+            }
+            if (g_skKeyEvent[K_DOWN].keyDown && g_sChar.m_cLocation.Y == 29)
+            {
+                clearScreen();
+                g_sChar.m_cLocation.Y = 0;
+                part1 = false;
+                part2 = false;
+            }
+        }
+        else
+        {
+            if (g_skKeyEvent[K_UP].keyDown && g_sChar.m_cLocation.Y == 0)
+            {
+                clearScreen();
+                g_sChar.m_cLocation.Y = 29;
+                part2 = true;
             }
         }
     }
@@ -656,6 +672,10 @@ void loadlvl2()
     if (part2)
     {
         inFile.open("lvl2part2.txt");
+    }
+    if (!part1 && !part2)
+    {
+        inFile.open("lvl2part3.txt");
     }
 
     //Error check
